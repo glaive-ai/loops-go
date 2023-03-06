@@ -94,21 +94,38 @@ type CreateContactResponse struct {
 	ID      string `json:"id"`
 }
 
-// CreateContact creates a new contact in Loops.
-func (c *Client) CreateContact(
+func validateFields(
 	ctx context.Context,
-	email string,
-	fields map[string]string) (*CreateContactResponse, error) {
-	req := map[string]interface{}{
-		"email": email,
-	}
+	fields map[string]interface{},
+) (map[string]interface{}, error) {
+	ret := map[string]interface{}{}
 	for k, v := range fields {
 		// Don't allow the email field to be set.
 		if k == "email" {
 			continue
 		}
-		req[k] = v
+		switch v.(type) {
+		case string, bool, int:
+		default:
+			return nil,fmt.Errorf("invalid field type for %s: %T", k, v)
+		}
+		ret[k] = v
 	}
+	return ret, nil
+}
+
+// CreateContact creates a new contact in Loops.
+func (c *Client) CreateContact(
+	ctx context.Context,
+	email string,
+	// Fields is a map of field names to values. Values can only be string, boolean or int
+	fields map[string]interface{},
+	) (*CreateContactResponse, error) {
+	req, err := validateFields(ctx, fields)
+	if err != nil {
+		return nil, err
+	}
+	req["email"] = email
 	var resp CreateContactResponse
 	if err := c.doRequest(ctx, "POST", "/contacts/create", req, &resp); err != nil {
 		return nil, err
@@ -122,17 +139,12 @@ type UpsertContactResponse struct {
 }
 
 // UpsertContact updates or creates a contact in Loops.
-func (c *Client) UpsertContact(ctx context.Context, email string, fields map[string]string) (*UpsertContactResponse, error) {
-	req := map[string]interface{}{
-		"email": email,
+func (c *Client) UpsertContact(ctx context.Context, email string, fields map[string]interface{}) (*UpsertContactResponse, error) {
+	req, err := validateFields(ctx, fields)
+	if err != nil {
+		return nil, err
 	}
-	for k, v := range fields {
-		// Don't allow the email to be set.
-		if k == "email" {
-			continue
-		}
-		req[k] = v
-	}
+	req["email"] = email
 	var resp UpsertContactResponse
 	if err := c.doRequest(ctx, "PUT", "/contacts/update", req, &resp); err != nil {
 		return nil, err
