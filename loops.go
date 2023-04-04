@@ -107,7 +107,7 @@ func validateFields(
 		switch v.(type) {
 		case string, bool, int:
 		default:
-			return nil,fmt.Errorf("invalid field type for %s: %T", k, v)
+			return nil, fmt.Errorf("invalid field type for %s: %T", k, v)
 		}
 		ret[k] = v
 	}
@@ -120,7 +120,7 @@ func (c *Client) CreateContact(
 	email string,
 	// Fields is a map of field names to values. Values can only be string, boolean or int
 	fields map[string]interface{},
-	) (*CreateContactResponse, error) {
+) (*CreateContactResponse, error) {
 	req, err := validateFields(ctx, fields)
 	if err != nil {
 		return nil, err
@@ -183,6 +183,26 @@ type SendEventRequest struct {
 func (c *Client) SendEvent(ctx context.Context, req SendEventRequest) (*SendEventResponse, error) {
 	var resp SendEventResponse
 	if err := c.doRequest(ctx, "POST", "/events/send", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+type SendTransactionalResponse struct {
+	Success bool `json:"success"`
+}
+
+type SendTransactionalRequest struct {
+	Email           string                 `json:"email"`
+	TransactionalID string                 `json:"transactionalId"`
+	DataVariables   map[string]interface{} `json:"dataVariables"`
+}
+
+// SendTransactional sends a transactional Loop to a contact.
+// DataVariables is an optional map of data variables to be used in the Loop.
+func (c *Client) SendTransactional(ctx context.Context, req SendTransactionalRequest) (*SendTransactionalResponse, error) {
+	var resp SendTransactionalResponse
+	if err := c.doRequest(ctx, "POST", "/transactional", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
