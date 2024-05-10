@@ -1,3 +1,3 @@
-module github.com/operandinc/loops-go
+module github.com/glaive-ai/loops-go
 
-go 1.19
+go 1.22

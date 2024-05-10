@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // Client implements the Loops API for a given API Key / endpoint.
@@ -22,6 +23,7 @@ const DefaultEndpoint = "https://app.loops.so/api/v1"
 
 // NewClient creates a new Client object.
 func NewClient(apiKey string) *Client {
+	// Could use /api-key to test the API key.
 	return &Client{
 		apiKey:   apiKey,
 		endpoint: DefaultEndpoint,
@@ -95,17 +97,16 @@ type CreateContactResponse struct {
 }
 
 func validateFields(
-	ctx context.Context,
-	fields map[string]interface{},
-) (map[string]interface{}, error) {
-	ret := map[string]interface{}{}
+	fields map[string]any,
+) (map[string]any, error) {
+	ret := map[string]any{}
 	for k, v := range fields {
 		// Don't allow the email field to be set.
 		if k == "email" {
 			continue
 		}
 		switch v.(type) {
-		case string, bool, int:
+		case string, bool, int, time.Time:
 		default:
 			return nil, fmt.Errorf("invalid field type for %s: %T", k, v)
 		}
@@ -118,10 +119,10 @@ func validateFields(
 func (c *Client) CreateContact(
 	ctx context.Context,
 	email string,
-	// Fields is a map of field names to values. Values can only be string, boolean or int
-	fields map[string]interface{},
+	// Fields is a map of field names to values. Values can only be string, boolean, integer, or time.Time.
+	fields map[string]any,
 ) (*CreateContactResponse, error) {
-	req, err := validateFields(ctx, fields)
+	req, err := validateFields(fields)
 	if err != nil {
 		return nil, err
 	}
@@ -139,8 +140,12 @@ type UpsertContactResponse struct {
 }
 
 // UpsertContact updates or creates a contact in Loops.
-func (c *Client) UpsertContact(ctx context.Context, email string, fields map[string]interface{}) (*UpsertContactResponse, error) {
-	req, err := validateFields(ctx, fields)
+func (c *Client) UpsertContact(
+	ctx context.Context,
+	email string,
+	fields map[string]any,
+) (*UpsertContactResponse, error) {
+	req, err := validateFields(fields)
 	if err != nil {
 		return nil, err
 	}
@@ -159,11 +164,11 @@ type DeleteContactResponse struct {
 
 // DeleteContact deletes a contact from Loops.
 func (c *Client) DeleteContact(ctx context.Context, email string) (*DeleteContactResponse, error) {
-	req := map[string]interface{}{
+	req := map[string]any{
 		"email": email,
 	}
 	var resp DeleteContactResponse
-	if err := c.doRequest(ctx, "DELETE", "/contacts/delete", req, &resp); err != nil {
+	if err := c.doRequest(ctx, "POST", "/contacts/delete", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -193,14 +198,17 @@ type SendTransactionalResponse struct {
 }
 
 type SendTransactionalRequest struct {
-	Email           string                 `json:"email"`
-	TransactionalID string                 `json:"transactionalId"`
-	DataVariables   map[string]interface{} `json:"dataVariables"`
+	Email           string         `json:"email"`
+	TransactionalID string         `json:"transactionalId"`
+	DataVariables   map[string]any `json:"dataVariables"`
 }
 
 // SendTransactional sends a transactional Loop to a contact.
 // DataVariables is an optional map of data variables to be used in the Loop.
-func (c *Client) SendTransactional(ctx context.Context, req SendTransactionalRequest) (*SendTransactionalResponse, error) {
+func (c *Client) SendTransactional(
+	ctx context.Context,
+	req SendTransactionalRequest,
+) (*SendTransactionalResponse, error) {
 	var resp SendTransactionalResponse
 	if err := c.doRequest(ctx, "POST", "/transactional", req, &resp); err != nil {
 		return nil, err
